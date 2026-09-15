@@ -3,11 +3,28 @@ package com.exitguard.app.network
 import com.exitguard.app.model.ExitInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+
+@Serializable
+private data class IpWhoResponse(
+    val ip: String? = null,
+    val success: Boolean = false,
+    val message: String? = null,
+    val country: String? = null,
+    val country_code: String? = null
+)
+
+@Serializable
+private data class IpSbResponse(
+    val ip: String? = null,
+    val country: String? = null,
+    val country_code: String? = null
+)
 
 class ExitDetectionService(
     private val client: OkHttpClient = OkHttpClient.Builder()
@@ -18,6 +35,12 @@ class ExitDetectionService(
     private val primaryUrl: String = "https://ipwho.is/",
     private val fallbackUrl: String = "https://api.ip.sb/geoip"
 ) {
+
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+        coerceInputValues = true
+    }
 
     suspend fun detectExit(): Result<ExitInfo> = withContext(Dispatchers.IO) {
         // Try primary API (ipwho.is)
@@ -49,18 +72,16 @@ class ExitDetectionService(
                     return Result.failure(IOException("HTTP 错误: ${response.code}"))
                 }
                 val body = response.body?.string() ?: return Result.failure(IOException("响应体为空"))
-                val json = JSONObject(body)
+                val parsed = json.decodeFromString<IpWhoResponse>(body)
 
-                // ipwho.is returns boolean "success"
-                val success = json.optBoolean("success", false)
-                if (!success) {
-                    val message = json.optString("message", "API 返回 success=false")
+                if (!parsed.success) {
+                    val message = parsed.message ?: "API 返回 success=false"
                     return Result.failure(IOException("出口接口返回错误: $message"))
                 }
 
-                val ip = json.optString("ip", "").trim()
-                val countryCode = json.optString("country_code", "").trim()
-                val country = json.optString("country", "").trim()
+                val ip = parsed.ip?.trim().orEmpty()
+                val countryCode = parsed.country_code?.trim().orEmpty()
+                val country = parsed.country?.trim().orEmpty()
 
                 if (ip.isEmpty() || countryCode.isEmpty()) {
                     return Result.failure(IOException("出口信息缺少 IP 或国家代码"))
@@ -92,11 +113,11 @@ class ExitDetectionService(
                     return Result.failure(IOException("备用接口 HTTP 错误: ${response.code}"))
                 }
                 val body = response.body?.string() ?: return Result.failure(IOException("备用接口响应为空"))
-                val json = JSONObject(body)
+                val parsed = json.decodeFromString<IpSbResponse>(body)
 
-                val ip = json.optString("ip", "").trim()
-                val countryCode = json.optString("country_code", "").trim()
-                val country = json.optString("country", "").trim()
+                val ip = parsed.ip?.trim().orEmpty()
+                val countryCode = parsed.country_code?.trim().orEmpty()
+                val country = parsed.country?.trim().orEmpty()
 
                 if (ip.isEmpty() || countryCode.isEmpty()) {
                     return Result.failure(IOException("备用接口返回缺少 IP 或国家代码"))
