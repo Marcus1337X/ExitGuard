@@ -72,6 +72,7 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onNavigateToAdd: () -> Unit,
     onNavigateToConfig: (String) -> Unit,
+    onNavigateToSettings: () -> Unit,
     onLaunchIntent: (Intent) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -120,21 +121,11 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = { viewModel.refreshExitInfo() },
-                        enabled = !state.isDetectingExit
-                    ) {
-                        if (state.isDetectingExit) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "刷新出口 IP"
-                            )
-                        }
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "设置"
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -349,7 +340,10 @@ fun EgressStatusRow(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(top = 2.dp)
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .clickable(enabled = !isDetecting, onClick = onRefresh)
+            .padding(vertical = 2.dp)
     ) {
         val (dotColor, statusText) = when {
             isDetecting -> WarningOrange to "出口检测中..."

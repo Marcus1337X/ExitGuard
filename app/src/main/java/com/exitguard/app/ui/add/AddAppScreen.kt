@@ -242,11 +242,16 @@ fun InstalledAppItem(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            Checkbox(
-                checked = if (isAlreadyAdded) true else isSelected,
-                onCheckedChange = if (isAlreadyAdded) null else { _ -> onToggle() },
-                enabled = !isAlreadyAdded
-            )
+            Box(
+                modifier = Modifier.size(48.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Checkbox(
+                    checked = if (isAlreadyAdded) true else isSelected,
+                    onCheckedChange = if (isAlreadyAdded) { {} } else { _ -> onToggle() },
+                    enabled = !isAlreadyAdded
+                )
+            }
         }
     }
 }

@@ -551,7 +551,6 @@ fun ConfigScreen(
                 items(state.allowedCountries.toList(), key = { it }) { countryCode ->
                     RuleEntryCard(
                         text = countryCode,
-                        isCurrent = countryCode == state.currentExitInfo?.countryCode,
                         onDelete = { viewModel.removeCountry(countryCode) }
                     )
                 }
@@ -574,7 +573,6 @@ fun ConfigScreen(
 @Composable
 fun RuleEntryCard(
     text: String,
-    isCurrent: Boolean,
     onDelete: () -> Unit
 ) {
     Card(
@@ -591,29 +589,12 @@ fun RuleEntryCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = text,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp
-                )
-                if (isCurrent) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = SafeGreen.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text = "当前出口",
-                            color = SafeGreen,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-            }
+            Text(
+                text = text,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Medium,
+                fontSize = 15.sp
+            )
 
             IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                 Icon(

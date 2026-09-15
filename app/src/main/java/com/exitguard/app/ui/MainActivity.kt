@@ -24,12 +24,15 @@ import com.exitguard.app.ui.config.ConfigScreen
 import com.exitguard.app.ui.config.ConfigViewModel
 import com.exitguard.app.ui.home.HomeScreen
 import com.exitguard.app.ui.home.HomeViewModel
+import com.exitguard.app.ui.settings.SettingsScreen
+import com.exitguard.app.ui.settings.SettingsViewModel
 import com.exitguard.app.ui.theme.ExitGuardTheme
 
 sealed interface Screen {
     data object Home : Screen
     data object AddApp : Screen
     data class Config(val packageName: String) : Screen
+    data object Settings : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -41,6 +44,7 @@ class MainActivity : ComponentActivity() {
         val app = application as ExitGuardApplication
         val ruleRepository = app.ruleRepository
         val appRepository = app.appRepository
+        val settingsRepository = app.settingsRepository
         val exitDetectionService = app.exitDetectionService
 
         setContent {
@@ -65,6 +69,7 @@ class MainActivity : ComponentActivity() {
                                 viewModel = homeViewModel,
                                 onNavigateToAdd = { currentScreen = Screen.AddApp },
                                 onNavigateToConfig = { pkg -> currentScreen = Screen.Config(pkg) },
+                                onNavigateToSettings = { currentScreen = Screen.Settings },
                                 onLaunchIntent = { intent ->
                                     try {
                                         startActivity(intent)
@@ -114,6 +119,24 @@ class MainActivity : ComponentActivity() {
 
                             ConfigScreen(
                                 viewModel = configViewModel,
+                                onNavigateBack = { currentScreen = Screen.Home }
+                            )
+                        }
+
+                        is Screen.Settings -> {
+                            BackHandler {
+                                currentScreen = Screen.Home
+                            }
+
+                            val settingsViewModel: SettingsViewModel = viewModel(
+                                factory = SettingsViewModel.Factory(
+                                    settingsRepository = settingsRepository,
+                                    exitDetectionService = exitDetectionService
+                                )
+                            )
+
+                            SettingsScreen(
+                                viewModel = settingsViewModel,
                                 onNavigateBack = { currentScreen = Screen.Home }
                             )
                         }

@@ -3,6 +3,7 @@ package com.exitguard.app
 import android.app.Application
 import com.exitguard.app.data.AppRepository
 import com.exitguard.app.data.RuleRepository
+import com.exitguard.app.data.SettingsRepository
 import com.exitguard.app.network.ExitDetectionService
 
 class ExitGuardApplication : Application() {
@@ -13,6 +14,9 @@ class ExitGuardApplication : Application() {
     lateinit var ruleRepository: RuleRepository
         private set
 
+    lateinit var settingsRepository: SettingsRepository
+        private set
+
     lateinit var exitDetectionService: ExitDetectionService
         private set
 
@@ -20,6 +24,7 @@ class ExitGuardApplication : Application() {
         super.onCreate()
         appRepository = AppRepository(this)
         ruleRepository = RuleRepository(this)
-        exitDetectionService = ExitDetectionService()
+        settingsRepository = SettingsRepository(this)
+        exitDetectionService = ExitDetectionService(settingsRepository = settingsRepository)
     }
 }

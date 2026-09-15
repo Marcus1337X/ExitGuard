@@ -107,4 +107,29 @@ class ExitDetectionServiceTest {
         val result = service.detectExit()
         assertTrue(result.isFailure)
     }
+
+    @Test
+    fun `detectExit successfully parses custom API format like ip-api`() = runBlocking {
+        val customJson = """
+            {
+              "query": "104.28.19.4",
+              "status": "success",
+              "country": "Hong Kong",
+              "countryCode": "HK"
+            }
+        """.trimIndent()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(customJson))
+
+        val service = ExitDetectionService(
+            client = OkHttpClient.Builder().build(),
+            primaryUrl = server.url("/custom").toString()
+        )
+
+        val result = service.testApiUrl(server.url("/custom").toString())
+        assertTrue(result.isSuccess)
+        val info = result.getOrThrow()
+        assertEquals("104.28.19.4", info.ip)
+        assertEquals("HK", info.countryCode)
+        assertEquals("Hong Kong", info.country)
+    }
 }
