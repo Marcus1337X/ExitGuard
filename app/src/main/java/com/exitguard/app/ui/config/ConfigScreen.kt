@@ -422,7 +422,6 @@ fun ConfigScreen(
                 items(state.allowedIps.toList(), key = { it }) { ip ->
                     RuleEntryCard(
                         text = ip,
-                        isCurrent = false,
                         onDelete = { viewModel.removeIp(ip) }
                     )
                 }
