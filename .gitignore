@@ -6,5 +6,6 @@
 /build
 */build
 captures/
+build-outputs/
 .externalNativeBuild
 .cxx
