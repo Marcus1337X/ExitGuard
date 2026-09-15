@@ -72,7 +72,6 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onNavigateToAdd: () -> Unit,
     onNavigateToConfig: (String) -> Unit,
-    onNavigateToSettings: () -> Unit,
     onLaunchIntent: (Intent) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -121,11 +120,21 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "设置"
-                        )
+                    IconButton(
+                        onClick = { viewModel.refreshExitInfo() },
+                        enabled = !state.isDetectingExit
+                    ) {
+                        if (state.isDetectingExit) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "刷新出口 IP"
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

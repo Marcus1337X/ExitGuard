@@ -27,17 +27,27 @@ class ExitDetectionServiceTest {
     }
 
     @Test
-    fun `detectExit successfully parses ipwho response`() = runBlocking {
-        val jsonResponse = """
-            {
-              "ip": "203.0.113.195",
-              "success": true,
-              "country": "Japan",
-              "country_code": "JP"
-            }
+    fun `detectExit successfully parses cloudflare trace response`() = runBlocking {
+        val traceResponse = """
+            fl=123f45
+            h=www.cloudflare.com
+            ip=104.28.19.4
+            ts=1700000000
+            visit_scheme=https
+            uag=ExitGuard-Android/1.0
+            colo=HKG
+            sliver=none
+            http=http/2
+            loc=HK
+            tls=TLSv1.3
+            sni=plaintext
+            warp=off
+            gateway=off
+            rbi=off
+            kex=X25519
         """.trimIndent()
 
-        server.enqueue(MockResponse().setResponseCode(200).setBody(jsonResponse))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(traceResponse))
 
         val service = ExitDetectionService(
             client = OkHttpClient.Builder()
@@ -51,9 +61,9 @@ class ExitDetectionServiceTest {
         val result = service.detectExit()
         assertTrue(result.isSuccess)
         val info = result.getOrThrow()
-        assertEquals("203.0.113.195", info.ip)
-        assertEquals("JP", info.countryCode)
-        assertEquals("Japan", info.country)
+        assertEquals("104.28.19.4", info.ip)
+        assertEquals("HK", info.countryCode)
+        assertEquals("HK", info.country)
     }
 
     @Test
@@ -62,14 +72,12 @@ class ExitDetectionServiceTest {
         server.enqueue(MockResponse().setResponseCode(500))
 
         // Fallback returns 200 with valid data
-        val fallbackJson = """
-            {
-              "ip": "198.51.100.1",
-              "country_code": "SG",
-              "country": "Singapore"
-            }
+        val fallbackTrace = """
+            fl=456f78
+            ip=198.51.100.1
+            loc=SG
         """.trimIndent()
-        server.enqueue(MockResponse().setResponseCode(200).setBody(fallbackJson))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(fallbackTrace))
 
         val service = ExitDetectionService(
             client = OkHttpClient.Builder().build(),
@@ -82,20 +90,12 @@ class ExitDetectionServiceTest {
         val info = result.getOrThrow()
         assertEquals("198.51.100.1", info.ip)
         assertEquals("SG", info.countryCode)
+        assertEquals("SG", info.country)
     }
 
     @Test
     fun `detectExit fails when both primary and fallback fail`() = runBlocking {
-        // Primary returns success=false
-        val primaryFailJson = """
-            {
-              "success": false,
-              "message": "Rate limit exceeded"
-            }
-        """.trimIndent()
-        server.enqueue(MockResponse().setResponseCode(200).setBody(primaryFailJson))
-
-        // Fallback returns 503
+        server.enqueue(MockResponse().setResponseCode(500))
         server.enqueue(MockResponse().setResponseCode(503))
 
         val service = ExitDetectionService(
@@ -109,27 +109,21 @@ class ExitDetectionServiceTest {
     }
 
     @Test
-    fun `detectExit successfully parses custom API format like ip-api`() = runBlocking {
-        val customJson = """
-            {
-              "query": "104.28.19.4",
-              "status": "success",
-              "country": "Hong Kong",
-              "countryCode": "HK"
-            }
+    fun `detectExit fails when response lacks required fields`() = runBlocking {
+        val incompleteTrace = """
+            fl=123f45
+            h=www.cloudflare.com
         """.trimIndent()
-        server.enqueue(MockResponse().setResponseCode(200).setBody(customJson))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(incompleteTrace))
+        server.enqueue(MockResponse().setResponseCode(404))
 
         val service = ExitDetectionService(
             client = OkHttpClient.Builder().build(),
-            primaryUrl = server.url("/custom").toString()
+            primaryUrl = server.url("/primary").toString(),
+            fallbackUrl = server.url("/fallback").toString()
         )
 
-        val result = service.testApiUrl(server.url("/custom").toString())
-        assertTrue(result.isSuccess)
-        val info = result.getOrThrow()
-        assertEquals("104.28.19.4", info.ip)
-        assertEquals("HK", info.countryCode)
-        assertEquals("Hong Kong", info.country)
+        val result = service.detectExit()
+        assertTrue(result.isFailure)
     }
 }
