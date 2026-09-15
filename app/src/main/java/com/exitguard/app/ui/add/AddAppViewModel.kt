@@ -38,20 +38,32 @@ class AddAppViewModel(
     val uiState: StateFlow<AddAppUiState> = _uiState.asStateFlow()
 
     init {
-        loadData()
+        observeRules()
+        loadApps()
     }
 
-    fun loadData() {
+    private fun observeRules() {
+        viewModelScope.launch {
+            ruleRepository.rulesFlow.collect { rules ->
+                val existing = rules.map { it.packageName }.toSet()
+                _uiState.update { state ->
+                    state.copy(
+                        existingPackages = existing,
+                        selectedPackages = state.selectedPackages - existing
+                    )
+                }
+            }
+        }
+    }
+
+    fun loadApps() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            val existing = ruleRepository.getRules().map { it.packageName }.toSet()
             val installed = appRepository.getInstalledLaunchableApps()
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    allApps = installed,
-                    existingPackages = existing,
-                    selectedPackages = emptySet()
+                    allApps = installed
                 )
             }
         }

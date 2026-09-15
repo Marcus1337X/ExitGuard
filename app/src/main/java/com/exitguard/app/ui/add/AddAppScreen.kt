@@ -57,6 +57,10 @@ fun AddAppScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.loadApps()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -238,31 +242,11 @@ fun InstalledAppItem(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            if (isAlreadyAdded) {
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(end = 4.dp)
-                ) {
-                    Text(
-                        text = "已保护",
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-                Checkbox(
-                    checked = true,
-                    onCheckedChange = null,
-                    enabled = false
-                )
-            } else {
-                Checkbox(
-                    checked = isSelected,
-                    onCheckedChange = { onToggle() }
-                )
-            }
+            Checkbox(
+                checked = if (isAlreadyAdded) true else isSelected,
+                onCheckedChange = if (isAlreadyAdded) null else { onToggle() },
+                enabled = !isAlreadyAdded
+            )
         }
     }
 }

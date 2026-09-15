@@ -98,6 +98,10 @@ fun ConfigScreen(
         }
     }
 
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshExitInfo()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -306,7 +310,7 @@ fun ConfigScreen(
                         onClick = { viewModel.setMode(CheckMode.COUNTRY) },
                         shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
                     ) {
-                        Text("国家模式")
+                        Text("匹配国家模式")
                     }
                 }
             }
@@ -352,7 +356,7 @@ fun ConfigScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("添加当前 IP", fontSize = 12.sp)
+                                    Text("添加当前出口IP", fontSize = 12.sp)
                                 }
                             }
                         }
@@ -418,7 +422,7 @@ fun ConfigScreen(
                 items(state.allowedIps.toList(), key = { it }) { ip ->
                     RuleEntryCard(
                         text = ip,
-                        isCurrent = ip == state.currentExitInfo?.ip,
+                        isCurrent = false,
                         onDelete = { viewModel.removeIp(ip) }
                     )
                 }

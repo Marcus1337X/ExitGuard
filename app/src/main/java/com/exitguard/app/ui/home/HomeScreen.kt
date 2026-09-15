@@ -87,6 +87,10 @@ fun HomeScreen(
         }
     }
 
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshExitInfo()
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -431,7 +435,7 @@ fun AppCard(
                     }
                     CheckMode.COUNTRY -> {
                         val list = item.rule.allowedCountries
-                        if (list.isEmpty()) "国家模式: 未配置 (禁止启动)" else "国家: ${list.joinToString(", ")}"
+                        if (list.isEmpty()) "匹配国家模式: 未配置 (禁止启动)" else "匹配国家: ${list.joinToString(", ")}"
                     }
                 }
 
