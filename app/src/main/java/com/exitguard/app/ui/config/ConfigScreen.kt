@@ -5,8 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,7 +34,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -76,7 +73,12 @@ import com.exitguard.app.ui.theme.AlertRed
 import com.exitguard.app.ui.theme.SafeGreen
 import com.exitguard.app.ui.theme.WarningOrange
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfigScreen(
     viewModel: ConfigViewModel,
@@ -87,12 +89,23 @@ fun ConfigScreen(
 
     var ipInput by remember { mutableStateOf("") }
     var countryInput by remember { mutableStateOf("") }
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
 
-    val commonCountries = listOf("US", "JP", "SG", "HK", "GB", "DE", "KR", "TW")
+    val handleBackAction = {
+        if (state.hasUnsavedChanges) {
+            showExitConfirmDialog = true
+        } else {
+            onNavigateBack()
+        }
+    }
+
+    BackHandler(enabled = true) {
+        handleBackAction()
+    }
 
     LaunchedEffect(state.isSavedMessageVisible) {
         if (state.isSavedMessageVisible) {
-            Toast.makeText(context, "规则已保存", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "配置已保存", Toast.LENGTH_SHORT).show()
             viewModel.hideSavedMessage()
             onNavigateBack()
         }
@@ -102,24 +115,39 @@ fun ConfigScreen(
         viewModel.refreshExitInfo()
     }
 
+    if (showExitConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitConfirmDialog = false },
+            title = { Text("放弃未保存的更改？") },
+            text = { Text("当前配置尚未保存，确定要退出吗？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showExitConfirmDialog = false
+                        onNavigateBack()
+                    }
+                ) {
+                    Text("退出", color = AlertRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitConfirmDialog = false }) {
+                    Text("继续编辑")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(text = "规则配置", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                    IconButton(onClick = handleBackAction) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "返回"
                         )
-                    }
-                },
-                actions = {
-                    Button(
-                        onClick = { viewModel.saveRule() },
-                        modifier = Modifier.padding(end = 8.dp)
-                    ) {
-                        Text("保存")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -226,7 +254,7 @@ fun ConfigScreen(
                             Spacer(modifier = Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "国家: ",
+                                    text = "地区: ",
                                     fontWeight = FontWeight.Medium,
                                     fontSize = 13.sp
                                 )
@@ -241,16 +269,33 @@ fun ConfigScreen(
                             // Match Status Banner
                             val evaluation = state.currentMatchEvaluation
                             val isAllowed = evaluation is CheckResult.Allowed
-                            val statusBg = if (isAllowed) SafeGreen.copy(alpha = 0.15f) else AlertRed.copy(alpha = 0.15f)
-                            val statusColor = if (isAllowed) SafeGreen else AlertRed
-                            val statusIcon = if (isAllowed) Icons.Default.Check else Icons.Default.Close
-                            val statusText = if (isAllowed) {
-                                "当前出口匹配本规则 (允许启动)"
-                            } else {
-                                when (evaluation) {
-                                    is CheckResult.Denied -> "未匹配: ${evaluation.reason}"
-                                    else -> "当前出口未通过规则匹配 (禁止启动)"
+                            val isNotConfigured = when (state.mode) {
+                                CheckMode.IP_STRICT -> state.allowedIps.isEmpty()
+                                CheckMode.COUNTRY -> state.allowedCountries.isEmpty()
+                            }
+                            val statusBg = when {
+                                isNotConfigured -> WarningOrange.copy(alpha = 0.15f)
+                                isAllowed -> SafeGreen.copy(alpha = 0.15f)
+                                else -> AlertRed.copy(alpha = 0.15f)
+                            }
+                            val statusColor = when {
+                                isNotConfigured -> WarningOrange
+                                isAllowed -> SafeGreen
+                                else -> AlertRed
+                            }
+                            val statusIcon = when {
+                                isNotConfigured -> Icons.Default.Warning
+                                isAllowed -> Icons.Default.Check
+                                else -> Icons.Default.Close
+                            }
+                            val statusText = when {
+                                isNotConfigured -> when (state.mode) {
+                                    CheckMode.IP_STRICT -> "尚未配置任何允许的 IPv4 地址 (禁止启动)"
+                                    CheckMode.COUNTRY -> "尚未配置任何允许的地区代码 (禁止启动)"
                                 }
+                                isAllowed -> "当前出口匹配本配置 (允许启动)"
+                                evaluation is CheckResult.Denied -> "未匹配: ${evaluation.reason}"
+                                else -> "当前出口未通过配置匹配 (禁止启动)"
                             }
 
                             Surface(
@@ -310,7 +355,7 @@ fun ConfigScreen(
                         onClick = { viewModel.setMode(CheckMode.COUNTRY) },
                         shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
                     ) {
-                        Text("匹配国家模式")
+                        Text("匹配地区模式")
                     }
                 }
             }
@@ -374,7 +419,7 @@ fun ConfigScreen(
                                     ipInput = it
                                     viewModel.clearInputError()
                                 },
-                                placeholder = { Text("例如 104.28.19.4") },
+                                placeholder = { Text("IPv4地址") },
                                 singleLine = true,
                                 modifier = Modifier.weight(1f),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -400,22 +445,6 @@ fun ConfigScreen(
                                 Text("添加")
                             }
                         }
-
-                        if (state.allowedIps.isEmpty()) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = WarningOrange.copy(alpha = 0.12f),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = "⚠️ 尚未配置任何允许 IP。根据安全策略，未配置规则的应用将被完全禁止启动。",
-                                    color = WarningOrange,
-                                    fontSize = 12.sp,
-                                    modifier = Modifier.padding(10.dp)
-                                )
-                            }
-                        }
                     }
                 }
 
@@ -426,7 +455,7 @@ fun ConfigScreen(
                     )
                 }
             } else {
-                // Country Mode Section
+                // Country/Region Mode Section
                 item {
                     Column {
                         Row(
@@ -435,7 +464,7 @@ fun ConfigScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "允许出口国家 (${state.allowedCountries.size})",
+                                text = "允许出口地区 (${state.allowedCountries.size})",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
                             )
@@ -452,43 +481,14 @@ fun ConfigScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("添加当前国家 ($currentCountry)", fontSize = 12.sp)
+                                    Text("添加当前出口地区", fontSize = 12.sp)
                                 }
                             }
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Quick Select Common Country Chips
-                        Text(
-                            text = "快捷常用国家/地区:",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            commonCountries.forEach { code ->
-                                val isSelected = state.allowedCountries.contains(code)
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = {
-                                        if (isSelected) {
-                                            viewModel.removeCountry(code)
-                                        } else {
-                                            viewModel.addCountry(code)
-                                        }
-                                    },
-                                    label = { Text(code, fontSize = 12.sp) }
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Country Code Input
+                        // Region Code Input
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
@@ -499,7 +499,7 @@ fun ConfigScreen(
                                     countryInput = it.uppercase().take(2)
                                     viewModel.clearInputError()
                                 },
-                                placeholder = { Text("2位代码，如 US、JP") },
+                                placeholder = { Text("两位地区代码") },
                                 singleLine = true,
                                 modifier = Modifier.weight(1f),
                                 keyboardOptions = KeyboardOptions(
@@ -528,22 +528,6 @@ fun ConfigScreen(
                                 Text("添加")
                             }
                         }
-
-                        if (state.allowedCountries.isEmpty()) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = WarningOrange.copy(alpha = 0.12f),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(
-                                    text = "⚠️ 尚未配置任何允许国家。根据安全策略，未配置规则的应用将被完全禁止启动。",
-                                    color = WarningOrange,
-                                    fontSize = 12.sp,
-                                    modifier = Modifier.padding(10.dp)
-                                )
-                            }
-                        }
                     }
                 }
 
@@ -562,7 +546,7 @@ fun ConfigScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("保存规则", fontSize = 16.sp, modifier = Modifier.padding(vertical = 4.dp))
+                    Text("保存配置", fontSize = 16.sp, modifier = Modifier.padding(vertical = 4.dp))
                 }
             }
         }

@@ -25,11 +25,17 @@ data class ConfigUiState(
     val mode: CheckMode = CheckMode.IP_STRICT,
     val allowedIps: Set<String> = emptySet(),
     val allowedCountries: Set<String> = emptySet(),
+    val initialMode: CheckMode = CheckMode.IP_STRICT,
+    val initialAllowedIps: Set<String> = emptySet(),
+    val initialAllowedCountries: Set<String> = emptySet(),
     val currentExitInfo: ExitInfo? = null,
     val isDetectingExit: Boolean = false,
     val isSavedMessageVisible: Boolean = false,
     val inputError: String? = null
 ) {
+    val hasUnsavedChanges: Boolean
+        get() = mode != initialMode || allowedIps != initialAllowedIps || allowedCountries != initialAllowedCountries
+
     val currentAppRule: AppRule
         get() = AppRule(
             packageName = packageName,
@@ -71,7 +77,10 @@ class ConfigViewModel(
                         icon = icon,
                         mode = existingRule.mode,
                         allowedIps = existingRule.allowedIps,
-                        allowedCountries = existingRule.allowedCountries
+                        allowedCountries = existingRule.allowedCountries,
+                        initialMode = existingRule.mode,
+                        initialAllowedIps = existingRule.allowedIps,
+                        initialAllowedCountries = existingRule.allowedCountries
                     )
                 }
             } else {
@@ -79,7 +88,10 @@ class ConfigViewModel(
                     it.copy(
                         appName = appName,
                         icon = icon,
-                        mode = CheckMode.IP_STRICT
+                        mode = CheckMode.IP_STRICT,
+                        initialMode = CheckMode.IP_STRICT,
+                        initialAllowedIps = emptySet(),
+                        initialAllowedCountries = emptySet()
                     )
                 }
             }
@@ -153,7 +165,7 @@ class ConfigViewModel(
         if (trimmed.isEmpty()) return
 
         if (!trimmed.matches(Regex("^[A-Z]{2}$"))) {
-            _uiState.update { it.copy(inputError = "请输入 2 位 ISO 国家代码，例如 US、JP、SG") }
+            _uiState.update { it.copy(inputError = "请输入 2 位地区代码，例如 US、JP、SG") }
             return
         }
 
@@ -193,7 +205,14 @@ class ConfigViewModel(
             val state = _uiState.value
             val rule = state.currentAppRule
             ruleRepository.saveRule(rule)
-            _uiState.update { it.copy(isSavedMessageVisible = true) }
+            _uiState.update {
+                it.copy(
+                    initialMode = rule.mode,
+                    initialAllowedIps = rule.allowedIps,
+                    initialAllowedCountries = rule.allowedCountries,
+                    isSavedMessageVisible = true
+                )
+            }
             onSaved()
         }
     }

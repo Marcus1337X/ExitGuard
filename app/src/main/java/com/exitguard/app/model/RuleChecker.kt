@@ -45,7 +45,7 @@ object RuleChecker {
                 val currentCountryCode = exit.countryCode.trim().uppercase()
 
                 if (cleanedAllowedCountries.isEmpty()) {
-                    CheckResult.Denied(exit, "未配置任何允许的国家规则，安全起见禁止启动")
+                    CheckResult.Denied(exit, "未配置任何允许的地区规则，安全起见禁止启动")
                 } else if (cleanedAllowedCountries.contains(currentCountryCode)) {
                     CheckResult.Allowed(exit)
                 } else {
@@ -56,7 +56,7 @@ object RuleChecker {
                     }
                     CheckResult.Denied(
                         exit,
-                        "当前出口国家 ($displayCountry) 不在允许国家列表中"
+                        "当前出口地区 ($displayCountry) 不在允许列表中"
                     )
                 }
             }

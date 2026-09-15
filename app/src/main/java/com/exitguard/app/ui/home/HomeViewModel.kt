@@ -125,7 +125,7 @@ class HomeViewModel(
                         it.copy(
                             launchDialogState = LaunchDialogState.Blocked(
                                 appName = rule.appName,
-                                reason = "该应用尚未配置任何允许的国家规则，安全起见已禁止启动。",
+                                reason = "该应用尚未配置任何允许的地区规则，安全起见已禁止启动。",
                                 exitInfo = null,
                                 rule = rule
                             )

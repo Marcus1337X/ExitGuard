@@ -110,7 +110,7 @@ class RuleCheckerTest {
         assertFalse(RuleChecker.isAllowed(rule, exit))
         val result = RuleChecker.evaluate(rule, exit)
         assertTrue(result is CheckResult.Denied)
-        assertTrue((result as CheckResult.Denied).reason.contains("未配置任何允许的国家"))
+        assertTrue((result as CheckResult.Denied).reason.contains("未配置任何允许的地区"))
     }
 
     @Test

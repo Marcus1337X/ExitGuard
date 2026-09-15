@@ -1,7 +1,6 @@
 package com.exitguard.app.ui.home
 
 import android.content.Intent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -57,6 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -75,6 +75,7 @@ fun HomeScreen(
     onLaunchIntent: (Intent) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     var appToDelete by remember { mutableStateOf<AppRuleItem?>(null) }
     var pendingLaunchPackage by remember { mutableStateOf<String?>(null) }
     var pendingLaunchTime by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
@@ -145,6 +146,7 @@ fun HomeScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToAdd,
+                modifier = Modifier.padding(end = 12.dp, bottom = 16.dp),
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
@@ -174,13 +176,21 @@ fun HomeScreen(
                             item = item,
                             isPendingConfirmation = isPending,
                             onClick = {
-                                val now = System.currentTimeMillis()
-                                if (pendingLaunchPackage == item.rule.packageName && now - pendingLaunchTime < 1500L) {
-                                    pendingLaunchPackage = null
-                                    viewModel.onAppClicked(item, onLaunchIntent)
+                                val isConfigured = when (item.rule.mode) {
+                                    CheckMode.IP_STRICT -> item.rule.allowedIps.isNotEmpty()
+                                    CheckMode.COUNTRY -> item.rule.allowedCountries.isNotEmpty()
+                                }
+                                if (!isConfigured) {
+                                    android.widget.Toast.makeText(context, "该应用尚未配置规则，请点击右侧齿轮配置", android.widget.Toast.LENGTH_SHORT).show()
                                 } else {
-                                    pendingLaunchPackage = item.rule.packageName
-                                    pendingLaunchTime = now
+                                    val now = System.currentTimeMillis()
+                                    if (pendingLaunchPackage == item.rule.packageName && now - pendingLaunchTime < 1500L) {
+                                        pendingLaunchPackage = null
+                                        viewModel.onAppClicked(item, onLaunchIntent)
+                                    } else {
+                                        pendingLaunchPackage = item.rule.packageName
+                                        pendingLaunchTime = now
+                                    }
                                 }
                             },
                             onConfigClick = {
@@ -242,7 +252,7 @@ fun HomeScreen(
             },
             title = {
                 Text(
-                    text = "禁止启动: ${blockedState.appName}",
+                    text = "启动被拦截",
                     fontWeight = FontWeight.Bold,
                     color = AlertRed
                 )
@@ -250,10 +260,23 @@ fun HomeScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = blockedState.reason,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = "应用 \"${blockedState.appName}\" 因出口安全规则未满足而被拦截启动：",
+                        fontSize = 14.sp
                     )
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = AlertRed.copy(alpha = 0.1f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = blockedState.reason,
+                            color = AlertRed,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
 
                     if (blockedState.exitInfo != null) {
                         Surface(
@@ -277,7 +300,7 @@ fun HomeScreen(
                                     blockedState.exitInfo.countryCode
                                 }
                                 Text(
-                                    text = "国家: $countryDesc",
+                                    text = "地区: $countryDesc",
                                     fontSize = 13.sp
                                 )
                             }
@@ -287,7 +310,7 @@ fun HomeScreen(
                     blockedState.rule?.let { rule ->
                         val ruleSummary = when (rule.mode) {
                             CheckMode.IP_STRICT -> "允许 IP: ${rule.allowedIps.ifEmpty { setOf("未设置") }.joinToString()}"
-                            CheckMode.COUNTRY -> "允许国家: ${rule.allowedCountries.ifEmpty { setOf("未设置") }.joinToString()}"
+                            CheckMode.COUNTRY -> "允许地区: ${rule.allowedCountries.ifEmpty { setOf("未设置") }.joinToString()}"
                         }
                         Text(
                             text = "配置规则: $ruleSummary",
@@ -400,9 +423,9 @@ fun AppCard(
             }
         ),
         border = if (isPendingConfirmation) {
-            androidx.compose.foundation.BorderStroke(2.dp, primaryColor)
+            androidx.compose.foundation.BorderStroke(1.5.dp, primaryColor)
         } else {
-            null
+            androidx.compose.foundation.BorderStroke(1.5.dp, Color.Transparent)
         },
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (isPendingConfirmation) 6.dp else 2.dp
@@ -434,11 +457,11 @@ fun AppCard(
                 val modeBadge = when (item.rule.mode) {
                     CheckMode.IP_STRICT -> {
                         val count = item.rule.allowedIps.size
-                        if (count == 0) "严格 IP: 未配置 (禁止启动)" else "严格 IP: $count 个允许"
+                        if (count == 0) "严格 IP: 未配置" else "严格 IP: $count 个允许"
                     }
                     CheckMode.COUNTRY -> {
                         val list = item.rule.allowedCountries
-                        if (list.isEmpty()) "匹配国家模式: 未配置 (禁止启动)" else "匹配国家: ${list.joinToString(", ")}"
+                        if (list.isEmpty()) "匹配地区: 未配置" else "匹配地区: ${list.joinToString(", ")}"
                     }
                 }
 
@@ -451,25 +474,14 @@ fun AppCard(
                     MaterialTheme.colorScheme.primary
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = badgeColor.copy(alpha = 0.12f)
-                    ) {
-                        Text(
-                            text = modeBadge,
-                            color = badgeColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-
-                    AnimatedVisibility(visible = isPendingConfirmation) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isPendingConfirmation) {
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = primaryColor,
-                            modifier = Modifier.padding(start = 6.dp)
+                            color = primaryColor
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -489,6 +501,21 @@ fun AppCard(
                                     fontWeight = FontWeight.Bold
                                 )
                             }
+                        }
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = badgeColor.copy(alpha = 0.12f)
+                        ) {
+                            Text(
+                                text = modeBadge,
+                                color = badgeColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
                         }
                     }
                 }
