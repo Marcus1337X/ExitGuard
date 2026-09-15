@@ -244,7 +244,7 @@ fun InstalledAppItem(
 
             Checkbox(
                 checked = if (isAlreadyAdded) true else isSelected,
-                onCheckedChange = if (isAlreadyAdded) null else { onToggle() },
+                onCheckedChange = if (isAlreadyAdded) null else { _ -> onToggle() },
                 enabled = !isAlreadyAdded
             )
         }
