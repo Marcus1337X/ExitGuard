@@ -117,7 +117,6 @@ fun HomeScreen(
         }
     }
 
-    val context = LocalContext.current
     val appLogo = remember {
         try {
             context.packageManager.getApplicationIcon(context.packageName)
