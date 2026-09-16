@@ -7,7 +7,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -95,14 +94,6 @@ fun HomeScreen(
         if (pendingLaunchPackage != null) {
             kotlinx.coroutines.delay(1500L)
             pendingLaunchPackage = null
-        }
-    }
-
-    // Auto-dismiss permission hint after 10s if user remains on screen
-    androidx.compose.runtime.LaunchedEffect(showPermissionHint) {
-        if (showPermissionHint) {
-            kotlinx.coroutines.delay(10000L)
-            showPermissionHint = false
         }
     }
 
@@ -467,8 +458,7 @@ fun EgressStatusRow(
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = WarningOrange,
-                            maxLines = 1,
-                            modifier = Modifier.basicMarquee()
+                            maxLines = 1
                         )
                     }
                 }
