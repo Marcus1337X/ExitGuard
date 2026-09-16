@@ -74,7 +74,7 @@ All exit detection queries connect directly to Cloudflare official endpoints wit
 
 Download the official signed release APK from [Releases](../../releases).
 
-> **Note**: Artifacts produced by public repo CI runs are strictly for compilation verification (using a debug keystore). Always obtain official production packages from the Releases link above.
+> **Note**: Artifacts produced by repository CI runs are strictly for compilation verification (using a debug keystore). Always obtain official production packages from the Releases link above.
 
 Build from source:
 
