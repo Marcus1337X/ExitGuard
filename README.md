@@ -72,7 +72,9 @@ ExitGuard 本身不收集或上传应用规则、检测历史或用户日志。
 
 ## 下载与构建
 
-从 [Releases](../../releases) 下载最新 APK。
+从 [Releases](../../releases) 下载官方发布的正式签名 APK。
+
+> **提示**：公开仓库的 CI 构建产物仅用于源码可编译性验证（使用 Debug 签名）；正式签名版本请从上述 Releases 页面获取。
 
 源码构建：
 
