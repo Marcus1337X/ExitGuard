@@ -10,6 +10,12 @@ ExitGuard 允许您在受控环境下集中管理与启动手机中的关键应�
 
 ---
 
+## 📱 系统支持
+
+- **支持系统**：Android 10 (API 29) 及更高版本
+
+---
+
 ## 🎯 解决的痛点
 
 - **防串节点，避免风控封号**：日常切换代理节点处理事务后，极易忘记切回固定节点而误点开对 IP 极度敏感的 AI 服务（如 Claude 等）导致封号。ExitGuard 在启动瞬间拦截误触。
@@ -40,20 +46,9 @@ ExitGuard 允许您在受控环境下集中管理与启动手机中的关键应�
 
 ---
 
-## 🛠️ 技术规格
-
-| 项目 | 说明 |
-| :--- | :--- |
-| **系统要求** | Android 10 (API 29) ~ Android 16 (API 36) |
-| **技术架构** | Kotlin 2.0 · Jetpack Compose (Material 3) · DataStore |
-| **网络层** | JDK 原生 `HttpURLConnection`（无第三方网络库依赖，双端点容灾） |
-| **安装包体积** | 约 **2.4 MB**（单 DEX，精简架构 `arm64-v8a` / `armeabi-v7a`） |
-
----
-
 ## 📥 获取与构建
 
-- **下载 APK**：前往 [Releases 页面](../../releases) 或 [GitHub Actions](../../actions) 下载最新 `app-release.apk`。
+- **下载 APK**：前往 [Releases 页面](../../releases) 下载最新 `app-release.apk`。
 - **源码构建**：
   ```bash
   git clone https://github.com/Marcus1337X/ExitGuard.git
