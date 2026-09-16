@@ -17,15 +17,25 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // 语言资源精简：仅保留中英双语
+        resourceConfigurations += listOf("zh", "zh-rCN", "en")
+
+        // 架构过滤：保留安卓主流真机架构 (64位与32位 ARM)
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
@@ -71,14 +81,10 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
-    // OkHttp
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     // Unit Testing
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }

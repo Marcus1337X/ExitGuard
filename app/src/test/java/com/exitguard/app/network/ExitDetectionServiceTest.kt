@@ -1,29 +1,30 @@
 package com.exitguard.app.network
 
+import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.runBlocking
-import okhttp3.OkHttpClient
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.util.concurrent.TimeUnit
+import java.net.InetSocketAddress
 
 class ExitDetectionServiceTest {
 
-    private lateinit var server: MockWebServer
+    private lateinit var server: HttpServer
+    private var baseUrl: String = ""
 
     @Before
     fun setUp() {
-        server = MockWebServer()
+        server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.start()
+        val port = server.address.port
+        baseUrl = "http://127.0.0.1:$port"
     }
 
     @After
     fun tearDown() {
-        server.shutdown()
+        server.stop(0)
     }
 
     @Test
@@ -47,15 +48,16 @@ class ExitDetectionServiceTest {
             kex=X25519
         """.trimIndent()
 
-        server.enqueue(MockResponse().setResponseCode(200).setBody(traceResponse))
+        server.createContext("/trace") { exchange ->
+            val bytes = traceResponse.toByteArray()
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.write(bytes)
+            exchange.close()
+        }
 
         val service = ExitDetectionService(
-            client = OkHttpClient.Builder()
-                .connectTimeout(2, TimeUnit.SECONDS)
-                .readTimeout(2, TimeUnit.SECONDS)
-                .build(),
-            primaryUrl = server.url("/").toString(),
-            fallbackUrl = server.url("/fallback").toString()
+            primaryUrl = "$baseUrl/trace",
+            fallbackUrl = "$baseUrl/fallback"
         )
 
         val result = service.detectExit()
@@ -68,21 +70,27 @@ class ExitDetectionServiceTest {
 
     @Test
     fun `detectExit falls back to secondary API when primary fails`() = runBlocking {
-        // Primary returns 500 error
-        server.enqueue(MockResponse().setResponseCode(500))
+        server.createContext("/primary") { exchange ->
+            exchange.sendResponseHeaders(500, -1)
+            exchange.close()
+        }
 
-        // Fallback returns 200 with valid data
         val fallbackTrace = """
             fl=456f78
             ip=198.51.100.1
             loc=SG
         """.trimIndent()
-        server.enqueue(MockResponse().setResponseCode(200).setBody(fallbackTrace))
+
+        server.createContext("/fallback") { exchange ->
+            val bytes = fallbackTrace.toByteArray()
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.write(bytes)
+            exchange.close()
+        }
 
         val service = ExitDetectionService(
-            client = OkHttpClient.Builder().build(),
-            primaryUrl = server.url("/primary").toString(),
-            fallbackUrl = server.url("/fallback").toString()
+            primaryUrl = "$baseUrl/primary",
+            fallbackUrl = "$baseUrl/fallback"
         )
 
         val result = service.detectExit()
@@ -95,13 +103,18 @@ class ExitDetectionServiceTest {
 
     @Test
     fun `detectExit fails when both primary and fallback fail`() = runBlocking {
-        server.enqueue(MockResponse().setResponseCode(500))
-        server.enqueue(MockResponse().setResponseCode(503))
+        server.createContext("/primary") { exchange ->
+            exchange.sendResponseHeaders(500, -1)
+            exchange.close()
+        }
+        server.createContext("/fallback") { exchange ->
+            exchange.sendResponseHeaders(503, -1)
+            exchange.close()
+        }
 
         val service = ExitDetectionService(
-            client = OkHttpClient.Builder().build(),
-            primaryUrl = server.url("/primary").toString(),
-            fallbackUrl = server.url("/fallback").toString()
+            primaryUrl = "$baseUrl/primary",
+            fallbackUrl = "$baseUrl/fallback"
         )
 
         val result = service.detectExit()
@@ -114,16 +127,25 @@ class ExitDetectionServiceTest {
             fl=123f45
             h=www.cloudflare.com
         """.trimIndent()
-        server.enqueue(MockResponse().setResponseCode(200).setBody(incompleteTrace))
-        server.enqueue(MockResponse().setResponseCode(404))
+
+        server.createContext("/primary") { exchange ->
+            val bytes = incompleteTrace.toByteArray()
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.write(bytes)
+            exchange.close()
+        }
+        server.createContext("/fallback") { exchange ->
+            exchange.sendResponseHeaders(404, -1)
+            exchange.close()
+        }
 
         val service = ExitDetectionService(
-            client = OkHttpClient.Builder().build(),
-            primaryUrl = server.url("/primary").toString(),
-            fallbackUrl = server.url("/fallback").toString()
+            primaryUrl = "$baseUrl/primary",
+            fallbackUrl = "$baseUrl/fallback"
         )
 
         val result = service.detectExit()
         assertTrue(result.isFailure)
     }
 }
+

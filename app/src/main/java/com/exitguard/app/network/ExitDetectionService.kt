@@ -3,17 +3,15 @@ package com.exitguard.app.network
 import com.exitguard.app.model.ExitInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
+import java.io.BufferedReader
 import java.io.IOException
-import java.util.concurrent.TimeUnit
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
 
 class ExitDetectionService(
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(3, TimeUnit.SECONDS)
-        .readTimeout(3, TimeUnit.SECONDS)
-        .callTimeout(5, TimeUnit.SECONDS)
-        .build(),
+    private val connectTimeoutMs: Int = 3000,
+    private val readTimeoutMs: Int = 3000,
     private val primaryUrl: String = "https://www.cloudflare.com/cdn-cgi/trace",
     private val fallbackUrl: String = "https://1.1.1.1/cdn-cgi/trace"
 ) {
@@ -35,22 +33,34 @@ class ExitDetectionService(
         Result.failure(IOException("公网出口检测失败: $primaryError"))
     }
 
-    private fun queryTrace(url: String): Result<ExitInfo> {
+    fun queryTrace(urlString: String): Result<ExitInfo> {
+        var connection: HttpURLConnection? = null
         return try {
-            val request = Request.Builder()
-                .url(url)
-                .header("User-Agent", "ExitGuard-Android/1.0")
-                .build()
-
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    return Result.failure(IOException("HTTP 错误: ${response.code}"))
-                }
-                val body = response.body?.string() ?: return Result.failure(IOException("响应体为空"))
-                parseTraceResponse(body)
+            val url = URL(urlString)
+            connection = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = connectTimeoutMs
+                readTimeout = readTimeoutMs
+                instanceFollowRedirects = true
+                setRequestProperty("User-Agent", "ExitGuard-Android/1.0")
+                setRequestProperty("Accept", "text/plain")
             }
+
+            val responseCode = connection.responseCode
+            if (responseCode !in 200..299) {
+                return Result.failure(IOException("HTTP 错误: $responseCode"))
+            }
+
+            val body = connection.inputStream.bufferedReader().use(BufferedReader::readText)
+            if (body.isBlank()) {
+                return Result.failure(IOException("响应体为空"))
+            }
+
+            parseTraceResponse(body)
         } catch (e: Exception) {
             Result.failure(e)
+        } finally {
+            connection?.disconnect()
         }
     }
 
@@ -88,3 +98,4 @@ class ExitDetectionService(
         }
     }
 }
+
