@@ -1,30 +1,19 @@
 package com.exitguard.app.network
 
-import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
-import java.net.InetSocketAddress
+import java.net.ServerSocket
 
 class ExitDetectionServiceTest {
 
-    private lateinit var server: HttpServer
-    private var baseUrl: String = ""
-
-    @Before
-    fun setUp() {
-        server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.start()
-        val port = server.address.port
-        baseUrl = "http://127.0.0.1:$port"
-    }
+    private var server: SimpleHttpServer? = null
 
     @After
     fun tearDown() {
-        server.stop(0)
+        server?.close()
     }
 
     @Test
@@ -48,16 +37,14 @@ class ExitDetectionServiceTest {
             kex=X25519
         """.trimIndent()
 
-        server.createContext("/trace") { exchange ->
-            val bytes = traceResponse.toByteArray()
-            exchange.sendResponseHeaders(200, bytes.size.toLong())
-            exchange.responseBody.write(bytes)
-            exchange.close()
+        server = SimpleHttpServer { path ->
+            if (path == "/trace") 200 to traceResponse else 404 to ""
         }
 
+        val port = server!!.port
         val service = ExitDetectionService(
-            primaryUrl = "$baseUrl/trace",
-            fallbackUrl = "$baseUrl/fallback"
+            primaryUrl = "http://127.0.0.1:$port/trace",
+            fallbackUrl = "http://127.0.0.1:$port/fallback"
         )
 
         val result = service.detectExit()
@@ -70,27 +57,24 @@ class ExitDetectionServiceTest {
 
     @Test
     fun `detectExit falls back to secondary API when primary fails`() = runBlocking {
-        server.createContext("/primary") { exchange ->
-            exchange.sendResponseHeaders(500, -1)
-            exchange.close()
-        }
-
         val fallbackTrace = """
             fl=456f78
             ip=198.51.100.1
             loc=SG
         """.trimIndent()
 
-        server.createContext("/fallback") { exchange ->
-            val bytes = fallbackTrace.toByteArray()
-            exchange.sendResponseHeaders(200, bytes.size.toLong())
-            exchange.responseBody.write(bytes)
-            exchange.close()
+        server = SimpleHttpServer { path ->
+            when (path) {
+                "/primary" -> 500 to "Error"
+                "/fallback" -> 200 to fallbackTrace
+                else -> 404 to ""
+            }
         }
 
+        val port = server!!.port
         val service = ExitDetectionService(
-            primaryUrl = "$baseUrl/primary",
-            fallbackUrl = "$baseUrl/fallback"
+            primaryUrl = "http://127.0.0.1:$port/primary",
+            fallbackUrl = "http://127.0.0.1:$port/fallback"
         )
 
         val result = service.detectExit()
@@ -103,18 +87,12 @@ class ExitDetectionServiceTest {
 
     @Test
     fun `detectExit fails when both primary and fallback fail`() = runBlocking {
-        server.createContext("/primary") { exchange ->
-            exchange.sendResponseHeaders(500, -1)
-            exchange.close()
-        }
-        server.createContext("/fallback") { exchange ->
-            exchange.sendResponseHeaders(503, -1)
-            exchange.close()
-        }
+        server = SimpleHttpServer { _ -> 500 to "Internal Error" }
+        val port = server!!.port
 
         val service = ExitDetectionService(
-            primaryUrl = "$baseUrl/primary",
-            fallbackUrl = "$baseUrl/fallback"
+            primaryUrl = "http://127.0.0.1:$port/primary",
+            fallbackUrl = "http://127.0.0.1:$port/fallback"
         )
 
         val result = service.detectExit()
@@ -128,24 +106,63 @@ class ExitDetectionServiceTest {
             h=www.cloudflare.com
         """.trimIndent()
 
-        server.createContext("/primary") { exchange ->
-            val bytes = incompleteTrace.toByteArray()
-            exchange.sendResponseHeaders(200, bytes.size.toLong())
-            exchange.responseBody.write(bytes)
-            exchange.close()
+        server = SimpleHttpServer { path ->
+            if (path == "/primary") 200 to incompleteTrace else 404 to ""
         }
-        server.createContext("/fallback") { exchange ->
-            exchange.sendResponseHeaders(404, -1)
-            exchange.close()
-        }
+        val port = server!!.port
 
         val service = ExitDetectionService(
-            primaryUrl = "$baseUrl/primary",
-            fallbackUrl = "$baseUrl/fallback"
+            primaryUrl = "http://127.0.0.1:$port/primary",
+            fallbackUrl = "http://127.0.0.1:$port/fallback"
         )
 
         val result = service.detectExit()
         assertTrue(result.isFailure)
+    }
+
+    private class SimpleHttpServer(
+        private val handler: (path: String) -> Pair<Int, String>
+    ) : AutoCloseable {
+        private val serverSocket = ServerSocket(0)
+        val port: Int = serverSocket.localPort
+        @Volatile private var running = true
+
+        init {
+            Thread {
+                while (running) {
+                    try {
+                        val socket = serverSocket.accept()
+                        Thread {
+                            try {
+                                val reader = socket.getInputStream().bufferedReader()
+                                val requestLine = reader.readLine() ?: ""
+                                val path = requestLine.split(" ").getOrNull(1) ?: "/"
+                                val (code, body) = handler(path)
+                                val writer = socket.getOutputStream().bufferedWriter()
+                                val statusLine = if (code == 200) "200 OK" else "$code Error"
+                                val bytes = body.toByteArray(Charsets.UTF_8)
+                                writer.write("HTTP/1.1 $statusLine\r\n")
+                                writer.write("Content-Type: text/plain; charset=utf-8\r\n")
+                                writer.write("Content-Length: ${bytes.size}\r\n")
+                                writer.write("Connection: close\r\n\r\n")
+                                writer.write(body)
+                                writer.flush()
+                                socket.close()
+                            } catch (e: Exception) {}
+                        }.start()
+                    } catch (e: Exception) {
+                        // socket closed
+                    }
+                }
+            }.start()
+        }
+
+        override fun close() {
+            running = false
+            try {
+                serverSocket.close()
+            } catch (e: Exception) {}
+        }
     }
 }
 
