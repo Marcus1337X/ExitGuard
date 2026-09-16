@@ -1,67 +1,85 @@
 # ExitGuard 🛡️
 
-**专为严苛网络环境打造的 Android 应用安全启动台 / 出口网络哨兵。**
+**Android 应用出口校验启动器。**
+
+ExitGuard 用于在启动指定应用前检查当前公网出口，并按每个应用独立配置的规则决定是否放行。
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Android%2010%2B-green.svg)](https://developer.android.com)
-[![Package Size](https://img.shields.io/badge/Package%20Size-2.4%20MB-success.svg)]()
+[![Platform](https://img.shields.io/badge/Android-10%2B-green.svg)](https://developer.android.com)
 
-ExitGuard 允许您在受控环境下集中管理与启动手机中的关键应用。支持为每个应用独立绑定出口 IP（IPv4 / IPv6）或出口地区白名单。**启动应用前毫秒级校验当前公网出口，仅当完全符合安全规则才放行启动，否则坚决阻断。**
+## 核心功能
 
----
+- **每个应用独立配置**
+- **严格 IP 模式（默认）**
+  - 支持 IPv4 / IPv6 地址匹配
+  - 支持多个允许 IP
+  - 支持一键添加当前出口 IP
+- **匹配地区模式**
+  - 使用 ISO 3166-1 alpha-2 两位代码，例如 `US`、`JP`、`SG`
+  - 支持多个允许地区
+- **Fail-Closed**
+  - 出口不匹配、检测失败、网络超时或规则为空时直接阻止启动
+  - 不提供跳过检查继续启动的选项
+- **轻量**
+  - 无需 Root
+  - 不占用系统 VPN 槽位
+  - 无后台常驻
 
-## 📱 系统支持
+## 工作方式
 
-- **支持系统**：Android 10 (API 29) 及更高版本
+```text
+在 ExitGuard 中点击应用
+        ↓
+实时检测公网出口
+        ↓
+读取该应用独立规则
+        ↓
+   严格 IP / 匹配地区
+     ↙       ↘
+   通过       不通过
+    ↓           ↓
+ 启动应用     阻止启动
+```
 
----
+出口检测直接请求 Cloudflare 官方公开 Trace 端点：
 
-## 🎯 解决的痛点
+```text
+https://www.cloudflare.com/cdn-cgi/trace
+https://1.1.1.1/cdn-cgi/trace
+```
 
-- **防串节点，避免风控封号**：日常切换代理节点处理事务后，极易忘记切回固定节点而误点开对 IP 极度敏感的 AI 服务（如 Claude 等）导致封号。ExitGuard 在启动瞬间拦截误触。
-- **专属浏览器 / Web 工作台隔离**：为特定浏览器绑定专属出口地区或 IP，专用于访问特定 AI/服务的网页端，确保网络环境始终如一。
-- **集中启动，告别繁琐翻找**：作为安全聚合工作台，受保护的应用集中陈列并统一启动，不局限于 AI，适用于任何需要出口一致性的应用。
+单次检测返回当前连接实际使用的出口 IP 与国家 / 地区代码。
 
----
+## 防护边界
 
-## ⚠️ 防护边界与隐私透明度
+ExitGuard 是**启动前校验工具**，不是系统级防火墙。
 
-- **防护边界（诚实公开）**：
-  - **仅限 ExitGuard 内启动**：只有从 ExitGuard 内部点击启动目标 App 才会执行出口检查；直接从系统桌面、通知栏快捷方式或最近任务列表切换进入目标 App 不会经过 ExitGuard。
-  - **仅防“启动瞬间”**：ExitGuard 专注于**启动前校验**，能 100% 杜绝“忘记切节点而误启动”；若应用放行启动后，您在通知栏或后台手动切换了节点，不在防护范围内。
-- **透明无隐私风险**：
-  - ExitGuard 本身不收集或上传任何日志与设备数据。
-  - 出口检测直接请求 **Cloudflare 官方公开追踪端点**（`https://www.cloudflare.com/cdn-cgi/trace` / `https://1.1.1.1/cdn-cgi/trace`），不经过任何第三方服务器。
-- **绿色无感**：无需 Root 权限，不占用系统的 VPN 槽位（可与所有代理客户端并存），无后台常驻进程。
+- 只有从 ExitGuard 内启动目标应用时才会执行检查。
+- 从系统桌面、通知、最近任务或其他应用直接进入目标应用，不会经过 ExitGuard。
+- 目标应用放行启动后，如果之后切换代理节点或网络环境，ExitGuard 不会持续监控或拦截。
 
----
+## 隐私
 
-## 🔒 核心功能
+ExitGuard 本身不收集或上传应用规则、检测历史或用户日志。
 
-- **严格 IP 模式**：
-  - 支持 **IPv4** 与 **IPv6** 地址规范化匹配（单次 Cloudflare trace 请求返回当前网络连接实际使用的出口 IP，内置兼容压缩/展开式与大小写等价判定）。
-  - 支持一键添加当前公网出口 IP 或手动录入多条白名单。
-- **出口地区模式**：
-  - 支持配置允许的 ISO 国家/地区两位代码（如 `US`、`JP`、`SG`、`HK` 等）。
-  - 支持一键添加当前出口地区或手动输入维护列表。
-- **零容忍拦截策略**：
-  - IP/地区不匹配、网络超时或未配置规则时坚决阻断启动。
-  - **不提供任何“跳过警告”的绕过选项**，保障出口安全绝对受控。
+出口检测请求会直接发送到 Cloudflare 官方服务，不经过 ExitGuard 自建中转服务器。
 
----
+## 系统要求
 
-## 📥 获取与构建
+- Android 10 / API 29 及以上
 
-- **下载 APK**：前往 [Releases 页面](../../releases) 下载最新 `app-release.apk`。
-- **源码构建**：
-  ```bash
-  git clone https://github.com/Marcus1337X/ExitGuard.git
-  cd ExitGuard
-  ./gradlew assembleRelease
-  ```
+## 下载与构建
 
----
+从 [Releases](../../releases) 下载最新 APK。
 
-## 📄 开源许可证
+源码构建：
 
-本项目基于 [Apache License 2.0](LICENSE) 开源。
+```bash
+git clone https://github.com/Marcus1337X/ExitGuard.git
+cd ExitGuard
+./gradlew assembleRelease
+```
+
+## License
+
+[Apache License 2.0](LICENSE)
