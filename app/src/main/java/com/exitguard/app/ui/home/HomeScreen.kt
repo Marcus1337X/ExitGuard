@@ -71,6 +71,7 @@ import com.exitguard.app.ui.components.AppIconImage
 import com.exitguard.app.ui.theme.AlertRed
 import com.exitguard.app.ui.theme.SafeGreen
 import com.exitguard.app.ui.theme.WarningOrange
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
