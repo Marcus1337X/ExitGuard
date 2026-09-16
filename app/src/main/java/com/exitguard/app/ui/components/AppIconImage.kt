@@ -4,14 +4,13 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
+import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Android
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -23,35 +22,46 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
+// Global LRU cache for Drawables converted to Bitmap, avoiding repeated Canvas draws on main thread
+private val drawableBitmapCache = LruCache<Int, Bitmap>(200)
+
 @Composable
 fun AppIconImage(
-    drawable: Drawable?,
+    drawable: Drawable? = null,
+    bitmap: Bitmap? = null,
     modifier: Modifier = Modifier,
     size: Dp = 44.dp
 ) {
-    val bitmap = remember(drawable) {
-        drawable?.let { d ->
-            try {
-                if (d is BitmapDrawable && d.bitmap != null) {
-                    d.bitmap
-                } else {
-                    val width = if (d.intrinsicWidth > 0) d.intrinsicWidth else 96
-                    val height = if (d.intrinsicHeight > 0) d.intrinsicHeight else 96
-                    val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                    val canvas = Canvas(bmp)
-                    d.setBounds(0, 0, canvas.width, canvas.height)
-                    d.draw(canvas)
-                    bmp
+    val finalBitmap = remember(bitmap, drawable) {
+        if (bitmap != null) {
+            bitmap
+        } else if (drawable != null) {
+            val key = System.identityHashCode(drawable)
+            drawableBitmapCache.get(key) ?: run {
+                try {
+                    if (drawable is BitmapDrawable && drawable.bitmap != null) {
+                        drawable.bitmap.also { drawableBitmapCache.put(key, it) }
+                    } else {
+                        val w = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth.coerceIn(48, 144) else 96
+                        val h = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight.coerceIn(48, 144) else 96
+                        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                        val canvas = Canvas(bmp)
+                        drawable.setBounds(0, 0, canvas.width, canvas.height)
+                        drawable.draw(canvas)
+                        bmp.also { drawableBitmapCache.put(key, it) }
+                    }
+                } catch (e: Exception) {
+                    null
                 }
-            } catch (e: Exception) {
-                null
             }
+        } else {
+            null
         }
     }
 
-    if (bitmap != null) {
+    if (finalBitmap != null) {
         Image(
-            bitmap = bitmap.asImageBitmap(),
+            bitmap = finalBitmap.asImageBitmap(),
             contentDescription = null,
             modifier = modifier
                 .size(size)
@@ -66,7 +76,7 @@ fun AppIconImage(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.Android,
+                imageVector = AppIcons.Android,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(size * 0.6f)
@@ -74,3 +84,4 @@ fun AppIconImage(
         }
     }
 }
+

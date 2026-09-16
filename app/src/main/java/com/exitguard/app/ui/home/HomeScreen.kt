@@ -28,10 +28,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Warning
+import com.exitguard.app.ui.components.AppIcons
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -126,7 +124,7 @@ fun HomeScreen(
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Default.Security,
+                                imageVector = AppIcons.Security,
                                 contentDescription = null,
                                 tint = SafeGreen,
                                 modifier = Modifier.size(24.dp)
@@ -447,14 +445,14 @@ fun EgressStatusRow(
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.TouchApp,
+                            imageVector = AppIcons.TouchApp,
                             contentDescription = null,
                             tint = WarningOrange,
                             modifier = Modifier.size(12.dp)
                         )
                         Spacer(modifier = Modifier.width(3.dp))
                         Text(
-                            text = "请在下方授权「始终允许」，避免下次重复授权",
+                            text = "点击下方授权「始终允许」",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             color = WarningOrange,
@@ -505,6 +503,7 @@ fun AppCard(
         ) {
             AppIconImage(
                 drawable = item.icon,
+                bitmap = item.iconBitmap,
                 size = 48.dp
             )
 
@@ -554,7 +553,7 @@ fun AppCard(
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.TouchApp,
+                                    imageVector = AppIcons.TouchApp,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onPrimary,
                                     modifier = Modifier.size(12.dp)
@@ -589,7 +588,7 @@ fun AppCard(
 
             IconButton(onClick = onConfigClick) {
                 Icon(
-                    imageVector = Icons.Default.Settings,
+                    imageVector = AppIcons.Settings,
                     contentDescription = "配置规则",
                     tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                 )
@@ -616,7 +615,7 @@ fun EmptyStateView() {
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
-            imageVector = Icons.Default.Security,
+            imageVector = AppIcons.Security,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
             modifier = Modifier.size(72.dp)

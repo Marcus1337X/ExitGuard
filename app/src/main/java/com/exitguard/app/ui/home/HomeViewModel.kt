@@ -1,6 +1,7 @@
 package com.exitguard.app.ui.home
 
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -12,16 +13,19 @@ import com.exitguard.app.model.CheckResult
 import com.exitguard.app.model.ExitInfo
 import com.exitguard.app.model.RuleChecker
 import com.exitguard.app.network.ExitDetectionService
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class AppRuleItem(
     val rule: AppRule,
-    val icon: Drawable? = null
+    val icon: Drawable? = null,
+    val iconBitmap: Bitmap? = null
 )
 
 sealed interface LaunchDialogState {
@@ -60,11 +64,14 @@ class HomeViewModel(
     private fun observeRules() {
         viewModelScope.launch {
             ruleRepository.rulesFlow.collect { rules ->
-                val items = rules.map { rule ->
-                    AppRuleItem(
-                        rule = rule,
-                        icon = appRepository.getAppIcon(rule.packageName)
-                    )
+                val items = withContext(Dispatchers.IO) {
+                    rules.map { rule ->
+                        AppRuleItem(
+                            rule = rule,
+                            icon = appRepository.getAppIcon(rule.packageName),
+                            iconBitmap = appRepository.getAppIconBitmap(rule.packageName)
+                        )
+                    }
                 }
                 _uiState.update { it.copy(appItems = items) }
             }

@@ -57,10 +57,6 @@ fun AddAppScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        viewModel.loadApps()
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -220,7 +216,7 @@ fun InstalledAppItem(
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AppIconImage(drawable = app.icon, size = 44.dp)
+            AppIconImage(drawable = app.icon, bitmap = app.iconBitmap, size = 44.dp)
             Spacer(modifier = Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
