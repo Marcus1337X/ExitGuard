@@ -57,9 +57,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -117,17 +117,24 @@ fun HomeScreen(
         }
     }
 
+    val context = LocalContext.current
+    val appLogo = remember {
+        try {
+            context.packageManager.getApplicationIcon(context.packageName)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = AppIcons.Security,
-                                contentDescription = null,
-                                tint = SafeGreen,
-                                modifier = Modifier.size(24.dp)
+                            AppIconImage(
+                                drawable = appLogo,
+                                size = 26.dp
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
@@ -614,13 +621,6 @@ fun EmptyStateView() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = AppIcons.Security,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-            modifier = Modifier.size(72.dp)
-        )
-        Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "暂无受保护应用",
             fontSize = 18.sp,

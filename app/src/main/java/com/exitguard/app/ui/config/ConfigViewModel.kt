@@ -127,10 +127,21 @@ class ConfigViewModel(
         val trimmed = ip.trim()
         if (trimmed.isEmpty()) return
 
-        // Basic IPv4 or IPv6 validation
-        val isValidIp = trimmed.matches(Regex("^[0-9a-fA-F.:]+$"))
+        // Support both IPv4 and IPv6 validation
+        val isValidIp = try {
+            val isSyntacticallyIp = (trimmed.contains(':') || trimmed.matches(Regex("^[0-9.]+$"))) &&
+                    trimmed.matches(Regex("^[0-9a-fA-F.:]+$"))
+            if (!isSyntacticallyIp) false
+            else {
+                val addr = java.net.InetAddress.getByName(trimmed)
+                addr.address.size == 4 || addr.address.size == 16
+            }
+        } catch (e: Exception) {
+            false
+        }
+
         if (!isValidIp) {
-            _uiState.update { it.copy(inputError = "请输入合法的 IP 地址") }
+            _uiState.update { it.copy(inputError = "请输入合法的 IPv4 或 IPv6 地址") }
             return
         }
 

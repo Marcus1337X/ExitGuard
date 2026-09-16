@@ -72,7 +72,14 @@ import com.exitguard.app.ui.theme.SafeGreen
 import com.exitguard.app.ui.theme.WarningOrange
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.focus.onFocusEvent
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 
@@ -88,6 +95,10 @@ fun ConfigScreen(
     var ipInput by remember { mutableStateOf("") }
     var countryInput by remember { mutableStateOf("") }
     var showExitConfirmDialog by remember { mutableStateOf(false) }
+
+    val ipBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val countryBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val coroutineScope = rememberCoroutineScope()
 
     val handleBackAction = {
         if (state.hasUnsavedChanges) {
@@ -157,7 +168,8 @@ fun ConfigScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
+                .padding(innerPadding)
+                .imePadding(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -288,12 +300,14 @@ fun ConfigScreen(
                             }
                             val statusText = when {
                                 isNotConfigured -> when (state.mode) {
-                                    CheckMode.IP_STRICT -> "尚未配置任何允许的 IPv4 地址 (禁止启动)"
+                                    CheckMode.IP_STRICT -> "尚未配置任何允许的 IP 地址 (禁止启动)"
                                     CheckMode.COUNTRY -> "尚未配置任何允许的地区代码 (禁止启动)"
                                 }
                                 isAllowed -> "当前出口匹配本配置 (允许启动)"
-                                evaluation is CheckResult.Denied -> "未匹配: ${evaluation.reason}"
-                                else -> "当前出口未通过配置匹配 (禁止启动)"
+                                else -> when (state.mode) {
+                                    CheckMode.IP_STRICT -> "当前出口IP不在允许列表中"
+                                    CheckMode.COUNTRY -> "当前出口地区不在允许列表中"
+                                }
                             }
 
                             Surface(
@@ -417,9 +431,19 @@ fun ConfigScreen(
                                     ipInput = it
                                     viewModel.clearInputError()
                                 },
-                                placeholder = { Text("IPv4地址") },
+                                placeholder = { Text("IPv4地址/IPv6地址") },
                                 singleLine = true,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .bringIntoViewRequester(ipBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        if (focusState.isFocused) {
+                                            coroutineScope.launch {
+                                                delay(250)
+                                                ipBringIntoViewRequester.bringIntoView()
+                                            }
+                                        }
+                                    },
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                                 keyboardActions = KeyboardActions(
                                     onDone = {
@@ -462,7 +486,7 @@ fun ConfigScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "允许出口地区 (${state.allowedCountries.size})",
+                                text = "允许出口地区列表 (${state.allowedCountries.size})",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
                             )
@@ -499,7 +523,17 @@ fun ConfigScreen(
                                 },
                                 placeholder = { Text("两位地区代码") },
                                 singleLine = true,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .bringIntoViewRequester(countryBringIntoViewRequester)
+                                    .onFocusEvent { focusState ->
+                                        if (focusState.isFocused) {
+                                            coroutineScope.launch {
+                                                delay(250)
+                                                countryBringIntoViewRequester.bringIntoView()
+                                            }
+                                        }
+                                    },
                                 keyboardOptions = KeyboardOptions(
                                     capitalization = KeyboardCapitalization.Characters,
                                     imeAction = ImeAction.Done

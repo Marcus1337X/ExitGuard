@@ -26,12 +26,12 @@ object RuleChecker {
 
                 if (cleanedAllowedIps.isEmpty()) {
                     CheckResult.Denied(exit, "未配置任何允许的出口 IP 规则，安全起见禁止启动")
-                } else if (cleanedAllowedIps.contains(exit.ip.trim())) {
+                } else if (isIpMatched(cleanedAllowedIps, exit.ip)) {
                     CheckResult.Allowed(exit)
                 } else {
                     CheckResult.Denied(
                         exit,
-                        "当前出口 IP (${exit.ip}) 不在允许列表中"
+                        "当前出口IP不在允许列表中"
                     )
                 }
             }
@@ -49,17 +49,32 @@ object RuleChecker {
                 } else if (cleanedAllowedCountries.contains(currentCountryCode)) {
                     CheckResult.Allowed(exit)
                 } else {
-                    val displayCountry = if (exit.country.isNotEmpty()) {
-                        "${exit.country} ($currentCountryCode)"
-                    } else {
-                        currentCountryCode
-                    }
                     CheckResult.Denied(
                         exit,
-                        "当前出口地区 ($displayCountry) 不在允许列表中"
+                        "当前出口地区不在允许列表中"
                     )
                 }
             }
+        }
+    }
+
+    private fun isIpMatched(allowedSet: Set<String>, currentIp: String): Boolean {
+        val currentTrimmed = currentIp.trim()
+        if (allowedSet.any { it.equals(currentTrimmed, ignoreCase = true) }) {
+            return true
+        }
+
+        return try {
+            val currentAddr = java.net.InetAddress.getByName(currentTrimmed)
+            allowedSet.any { allowed ->
+                try {
+                    java.net.InetAddress.getByName(allowed.trim()) == currentAddr
+                } catch (e: Exception) {
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            false
         }
     }
 }

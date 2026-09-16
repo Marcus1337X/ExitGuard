@@ -35,7 +35,39 @@ class RuleCheckerTest {
         assertFalse(RuleChecker.isAllowed(rule, exit))
         val result = RuleChecker.evaluate(rule, exit)
         assertTrue(result is CheckResult.Denied)
-        assertTrue((result as CheckResult.Denied).reason.contains("9.9.9.9"))
+        assertEquals("当前出口IP不在允许列表中", (result as CheckResult.Denied).reason)
+    }
+
+    @Test
+    fun `strict IP mode passes with IPv6 match including compressed representation`() {
+        val rule = AppRule(
+            packageName = "com.example.test",
+            appName = "Test App",
+            mode = CheckMode.IP_STRICT,
+            allowedIps = setOf("2001:db8::1", "240e:3b3:30b1::1")
+        )
+        // Exit returns expanded or different casing
+        val exit = ExitInfo(ip = "2001:DB8:0:0:0:0:0:1", countryCode = "CN")
+
+        assertTrue(RuleChecker.isAllowed(rule, exit))
+        val result = RuleChecker.evaluate(rule, exit)
+        assertTrue(result is CheckResult.Allowed)
+    }
+
+    @Test
+    fun `strict IP mode denies with non-matching IPv6`() {
+        val rule = AppRule(
+            packageName = "com.example.test",
+            appName = "Test App",
+            mode = CheckMode.IP_STRICT,
+            allowedIps = setOf("2001:db8::1")
+        )
+        val exit = ExitInfo(ip = "2001:db8::2", countryCode = "CN")
+
+        assertFalse(RuleChecker.isAllowed(rule, exit))
+        val result = RuleChecker.evaluate(rule, exit)
+        assertTrue(result is CheckResult.Denied)
+        assertEquals("当前出口IP不在允许列表中", (result as CheckResult.Denied).reason)
     }
 
     @Test
@@ -95,6 +127,7 @@ class RuleCheckerTest {
         assertFalse(RuleChecker.isAllowed(rule, exit))
         val result = RuleChecker.evaluate(rule, exit)
         assertTrue(result is CheckResult.Denied)
+        assertEquals("当前出口地区不在允许列表中", (result as CheckResult.Denied).reason)
     }
 
     @Test
