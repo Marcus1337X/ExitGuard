@@ -10,3 +10,4 @@ build-outputs/
 .externalNativeBuild
 .cxx
 Screenshot.jpg
+*.apk
