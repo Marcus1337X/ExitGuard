@@ -4,6 +4,8 @@
 
 ExitGuard 用于在启动指定应用前检查当前公网出口，并按每个应用独立配置的规则决定是否放行。
 
+[English](README_EN.md) | [简体中文](README.md)
+
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Android-10%2B-green.svg)](https://developer.android.com)
 
