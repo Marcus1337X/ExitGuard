@@ -84,6 +84,11 @@ cd ExitGuard
 ./gradlew assembleRelease
 ```
 
+## 贡献者
+
+- [@Marcus1337X](https://github.com/Marcus1337X) - 项目发起人与作者
+- Antigravity (Google DeepMind) - AI 架构与结对开发
+
 ## License
 
 [Apache License 2.0](LICENSE)
