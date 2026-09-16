@@ -1,7 +1,13 @@
 package com.exitguard.app.ui.home
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -76,9 +82,12 @@ fun HomeScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     var appToDelete by remember { mutableStateOf<AppRuleItem?>(null) }
     var pendingLaunchPackage by remember { mutableStateOf<String?>(null) }
     var pendingLaunchTime by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    var isAppStopped by remember { mutableStateOf(false) }
+    var showPermissionHint by remember { mutableStateOf(false) }
 
     // Reset pending confirmation after 1500ms
     androidx.compose.runtime.LaunchedEffect(pendingLaunchPackage, pendingLaunchTime) {
@@ -88,8 +97,34 @@ fun HomeScreen(
         }
     }
 
+    // Auto-dismiss permission hint after 10s if user remains on screen
+    androidx.compose.runtime.LaunchedEffect(showPermissionHint) {
+        if (showPermissionHint) {
+            kotlinx.coroutines.delay(10000L)
+            showPermissionHint = false
+        }
+    }
+
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+        isAppStopped = true
+    }
+
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        isAppStopped = false
+        showPermissionHint = false
         viewModel.refreshExitInfo()
+    }
+
+    val handleLaunchIntent: (Intent) -> Unit = { intent ->
+        isAppStopped = false
+        onLaunchIntent(intent)
+        coroutineScope.launch {
+            kotlinx.coroutines.delay(400L)
+            // If the activity did not stop, the system modal is blocking foreground jump
+            if (!isAppStopped) {
+                showPermissionHint = true
+            }
+        }
     }
 
     Scaffold(
@@ -111,12 +146,13 @@ fun HomeScreen(
                                 fontSize = 20.sp
                             )
                         }
-                        // Egress status pill
+                        // Egress status pill & permission hint
                         EgressStatusRow(
                             exitInfo = state.currentExitInfo,
                             isDetecting = state.isDetectingExit,
                             errorMessage = state.exitDetectionError,
-                            onRefresh = { viewModel.refreshExitInfo() }
+                            onRefresh = { viewModel.refreshExitInfo() },
+                            permissionHintVisible = showPermissionHint
                         )
                     }
                 },
@@ -186,7 +222,7 @@ fun HomeScreen(
                                     val now = System.currentTimeMillis()
                                     if (pendingLaunchPackage == item.rule.packageName && now - pendingLaunchTime < 1500L) {
                                         pendingLaunchPackage = null
-                                        viewModel.onAppClicked(item, onLaunchIntent)
+                                        viewModel.onAppClicked(item, handleLaunchIntent)
                                     } else {
                                         pendingLaunchPackage = item.rule.packageName
                                         pendingLaunchTime = now
@@ -368,7 +404,8 @@ fun EgressStatusRow(
     exitInfo: com.exitguard.app.model.ExitInfo?,
     isDetecting: Boolean,
     errorMessage: String?,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    permissionHintVisible: Boolean = false
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -398,6 +435,44 @@ fun EgressStatusRow(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+
+        AnimatedVisibility(
+            visible = permissionHintVisible,
+            enter = fadeIn() + expandHorizontally(),
+            exit = fadeOut() + shrinkHorizontally()
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = WarningOrange.copy(alpha = 0.16f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, WarningOrange.copy(alpha = 0.8f))
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.TouchApp,
+                            contentDescription = null,
+                            tint = WarningOrange,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = "请在下方授权「始终允许」，避免下次重复授权",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = WarningOrange,
+                            maxLines = 1,
+                            modifier = Modifier.basicMarquee()
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
